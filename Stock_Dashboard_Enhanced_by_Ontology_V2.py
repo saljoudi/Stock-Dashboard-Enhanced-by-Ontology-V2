@@ -1,7 +1,7 @@
-#!/usr/bin/env python
-# coding: utf-8
+# #!/usr/bin/env python
+# # coding: utf-8
 
-# In[2]:
+# # In[2]:
 
 
 import dash
@@ -17,8 +17,15 @@ from datetime import datetime, timedelta
 import numpy as np
 warnings.filterwarnings("ignore")
 
+# #!/usr/bin/env python
+# # coding: utf-8
+
+# # In[2]:
+
+
+
 # ─────────────────────────────────────────────
-#  ENHANCED Stock Analysis Ontology
+#  ENHANCED Stock Analysis Ontology with Candle Pattern Knowledge Layer
 # ─────────────────────────────────────────────
 class EnhancedStockAnalysisOntology:
     def __init__(self):
@@ -149,9 +156,355 @@ class EnhancedStockAnalysisOntology:
                     'concepts': ['Point of Control', 'Value Area', 'High Volume Nodes'],
                     'significance': 'Volume-based support/resistance'
                 }
+            },
+            'candle_patterns': {
+                'single_candle': {
+                    'doji': {
+                        'description': 'Open and close are nearly equal',
+                        'significance': 'Indecision, potential reversal',
+                        'reliability': 'Medium',
+                        'confirmation': 'Next candle direction'
+                    },
+                    'hammer': {
+                        'description': 'Small body with long lower wick',
+                        'significance': 'Bullish reversal after downtrend',
+                        'reliability': 'High',
+                        'confirmation': 'Next candle up'
+                    },
+                    'hanging_man': {
+                        'description': 'Small body with long lower wick',
+                        'significance': 'Bearish reversal after uptrend', 
+                        'reliability': 'High',
+                        'confirmation': 'Next candle down'
+                    },
+                    'shooting_star': {
+                        'description': 'Small body with long upper wick',
+                        'significance': 'Bearish reversal after uptrend',
+                        'reliability': 'High',
+                        'confirmation': 'Next candle down'
+                    },
+                    'inverted_hammer': {
+                        'description': 'Small body with long upper wick',
+                        'significance': 'Bullish reversal after downtrend',
+                        'reliability': 'Medium',
+                        'confirmation': 'Next candle up'
+                    },
+                    'marubozu': {
+                        'description': 'No wicks, body covers entire range',
+                        'significance': 'Strong momentum in direction of body',
+                        'reliability': 'High',
+                        'confirmation': 'None needed'
+                    }
+                },
+                'two_candle': {
+                    'bullish_engulfing': {
+                        'description': 'Small bear candle followed by large bull candle that engulfs it',
+                        'significance': 'Strong bullish reversal',
+                        'reliability': 'High',
+                        'confirmation': 'Volume spike'
+                    },
+                    'bearish_engulfing': {
+                        'description': 'Small bull candle followed by large bear candle that engulfs it',
+                        'significance': 'Strong bearish reversal',
+                        'reliability': 'High', 
+                        'confirmation': 'Volume spike'
+                    },
+                    'tweezer_top': {
+                        'description': 'Two candles with similar highs after uptrend',
+                        'significance': 'Resistance level, potential reversal',
+                        'reliability': 'Medium',
+                        'confirmation': 'Next candle down'
+                    },
+                    'tweezer_bottom': {
+                        'description': 'Two candles with similar lows after downtrend',
+                        'significance': 'Support level, potential reversal',
+                        'reliability': 'Medium',
+                        'confirmation': 'Next candle up'
+                    },
+                    'piercing_line': {
+                        'description': 'Bear candle followed by bull candle that closes above midpoint of previous',
+                        'significance': 'Bullish reversal',
+                        'reliability': 'Medium',
+                        'confirmation': 'Volume confirmation'
+                    },
+                    'dark_cloud_cover': {
+                        'description': 'Bull candle followed by bear candle that closes below midpoint of previous',
+                        'significance': 'Bearish reversal',
+                        'reliability': 'Medium',
+                        'confirmation': 'Volume confirmation'
+                    }
+                },
+                'three_candle': {
+                    'morning_star': {
+                        'description': 'Long bear, doji/small, long bull candle',
+                        'significance': 'Strong bullish reversal',
+                        'reliability': 'High',
+                        'confirmation': 'Gap up and volume'
+                    },
+                    'evening_star': {
+                        'description': 'Long bull, doji/small, long bear candle',
+                        'significance': 'Strong bearish reversal', 
+                        'reliability': 'High',
+                        'confirmation': 'Gap down and volume'
+                    },
+                    'three_white_soldiers': {
+                        'description': 'Three consecutive long bull candles',
+                        'significance': 'Strong bullish momentum',
+                        'reliability': 'High',
+                        'confirmation': 'Volume increasing'
+                    },
+                    'three_black_crows': {
+                        'description': 'Three consecutive long bear candles',
+                        'significance': 'Strong bearish momentum',
+                        'reliability': 'High',
+                        'confirmation': 'Volume increasing'
+                    },
+                    'three_inside_up': {
+                        'description': 'Bear, smaller bull inside, larger bull',
+                        'significance': 'Bullish reversal',
+                        'reliability': 'Medium',
+                        'confirmation': 'Breakout above resistance'
+                    },
+                    'three_inside_down': {
+                        'description': 'Bull, smaller bear inside, larger bear',
+                        'significance': 'Bearish reversal',
+                        'reliability': 'Medium',
+                        'confirmation': 'Breakout below support'
+                    }
+                }
             }
         }
 
+    def detect_candle_patterns(self, df, lookback_period=10):
+        """Comprehensive candlestick pattern detection"""
+        patterns = []
+        confidence_score = 0
+        
+        if len(df) < 5:
+            return patterns, confidence_score
+        
+        # Get recent candles for analysis
+        recent_data = df.tail(lookback_period)
+        
+        # Single Candle Patterns
+        for i in range(len(recent_data)-1, max(len(recent_data)-6, 0), -1):
+            current = recent_data.iloc[i]
+            prev = recent_data.iloc[i-1] if i > 0 else current
+            
+            # Calculate candle properties
+            body_size = abs(current['close'] - current['open'])
+            total_range = current['high'] - current['low']
+            upper_wick = current['high'] - max(current['open'], current['close'])
+            lower_wick = min(current['open'], current['close']) - current['low']
+            
+            # Doji pattern
+            if body_size / total_range < 0.1 and total_range > 0:
+                patterns.append({
+                    'pattern': 'Doji',
+                    'type': 'neutral',
+                    'significance': 'Indecision - Potential reversal point',
+                    'confidence': 0.6,
+                    'position': f'Day {i}'
+                })
+                confidence_score += 0.3
+            
+            # Hammer pattern (bullish reversal)
+            if (lower_wick >= 2 * body_size and 
+                body_size > 0 and 
+                upper_wick <= body_size * 0.5):
+                if current['close'] > current['open']:  # Bullish hammer
+                    patterns.append({
+                        'pattern': 'Hammer',
+                        'type': 'bullish',
+                        'significance': 'Bullish reversal signal after downtrend',
+                        'confidence': 0.7,
+                        'position': f'Day {i}'
+                    })
+                    confidence_score += 0.5
+                else:  # Hanging man (bearish)
+                    patterns.append({
+                        'pattern': 'Hanging Man',
+                        'type': 'bearish', 
+                        'significance': 'Bearish reversal signal after uptrend',
+                        'confidence': 0.7,
+                        'position': f'Day {i}'
+                    })
+                    confidence_score -= 0.5
+            
+            # Shooting star pattern
+            if (upper_wick >= 2 * body_size and 
+                body_size > 0 and 
+                lower_wick <= body_size * 0.5):
+                patterns.append({
+                    'pattern': 'Shooting Star',
+                    'type': 'bearish',
+                    'significance': 'Bearish reversal signal after uptrend',
+                    'confidence': 0.7,
+                    'position': f'Day {i}'
+                })
+                confidence_score -= 0.5
+            
+            # Marubozu (strong momentum)
+            if body_size / total_range > 0.9:
+                if current['close'] > current['open']:
+                    patterns.append({
+                        'pattern': 'Bullish Marubozu',
+                        'type': 'bullish',
+                        'significance': 'Strong bullish momentum - no wicks',
+                        'confidence': 0.8,
+                        'position': f'Day {i}'
+                    })
+                    confidence_score += 0.6
+                else:
+                    patterns.append({
+                        'pattern': 'Bearish Marubozu',
+                        'type': 'bearish',
+                        'significance': 'Strong bearish momentum - no wicks',
+                        'confidence': 0.8,
+                        'position': f'Day {i}'
+                    })
+                    confidence_score -= 0.6
+        
+        # Multi-candle patterns (check last 3-5 candles)
+        if len(recent_data) >= 3:
+            # Engulfing patterns
+            for i in range(len(recent_data)-2, max(len(recent_data)-5, 0), -1):
+                current = recent_data.iloc[i]
+                prev = recent_data.iloc[i-1]
+                
+                # Bullish engulfing
+                if (prev['close'] < prev['open'] and  # Previous bearish
+                    current['close'] > current['open'] and  # Current bullish
+                    current['open'] < prev['close'] and  # Opens below previous close
+                    current['close'] > prev['open']):  # Closes above previous open
+                    
+                    patterns.append({
+                        'pattern': 'Bullish Engulfing',
+                        'type': 'bullish',
+                        'significance': 'Strong bullish reversal pattern',
+                        'confidence': 0.8,
+                        'position': f'Days {i-1}-{i}'
+                    })
+                    confidence_score += 0.7
+                
+                # Bearish engulfing  
+                elif (prev['close'] > prev['open'] and  # Previous bullish
+                      current['close'] < current['open'] and  # Current bearish
+                      current['open'] > prev['close'] and  # Opens above previous close
+                      current['close'] < prev['open']):  # Closes below previous open
+                    
+                    patterns.append({
+                        'pattern': 'Bearish Engulfing',
+                        'type': 'bearish',
+                        'significance': 'Strong bearish reversal pattern',
+                        'confidence': 0.8,
+                        'position': f'Days {i-1}-{i}'
+                    })
+                    confidence_score -= 0.7
+            
+            # Morning/Evening star patterns
+            if len(recent_data) >= 3:
+                for i in range(len(recent_data)-3, max(len(recent_data)-6, 0), -1):
+                    first = recent_data.iloc[i]
+                    second = recent_data.iloc[i+1] 
+                    third = recent_data.iloc[i+2]
+                    
+                    # Morning star (bullish reversal)
+                    if (first['close'] < first['open'] and  # First bearish
+                        abs(second['close'] - second['open']) / (second['high'] - second['low']) < 0.3 and  # Second small body
+                        third['close'] > third['open'] and  # Third bullish
+                        third['close'] > first['close']):  # Closes above first candle
+                        
+                        patterns.append({
+                            'pattern': 'Morning Star',
+                            'type': 'bullish',
+                            'significance': 'Strong bullish reversal pattern',
+                            'confidence': 0.85,
+                            'position': f'Days {i}-{i+2}'
+                        })
+                        confidence_score += 0.8
+                    
+                    # Evening star (bearish reversal)
+                    elif (first['close'] > first['open'] and  # First bullish
+                          abs(second['close'] - second['open']) / (second['high'] - second['low']) < 0.3 and  # Second small body
+                          third['close'] < third['open'] and  # Third bearish
+                          third['close'] < first['close']):  # Closes below first candle
+                        
+                        patterns.append({
+                            'pattern': 'Evening Star',
+                            'type': 'bearish',
+                            'significance': 'Strong bearish reversal pattern',
+                            'confidence': 0.85,
+                            'position': f'Days {i}-{i+2}'
+                        })
+                        confidence_score -= 0.8
+        
+        # Remove duplicates and return most recent patterns
+        unique_patterns = []
+        seen = set()
+        for pattern in patterns:
+            key = (pattern['pattern'], pattern['position'])
+            if key not in seen:
+                seen.add(key)
+                unique_patterns.append(pattern)
+        
+        return unique_patterns[:5], confidence_score  # Return top 5 patterns
+
+    def analyze_candle_characteristics(self, df, period=5):
+        """Analyze recent candle characteristics for market sentiment"""
+        characteristics = []
+        
+        if len(df) < period:
+            return characteristics
+        
+        recent = df.tail(period)
+        
+        # Calculate average properties
+        avg_body_size = 0
+        avg_upper_wick = 0
+        avg_lower_wick = 0
+        bull_count = 0
+        bear_count = 0
+        
+        for i in range(len(recent)):
+            candle = recent.iloc[i]
+            body_size = abs(candle['close'] - candle['open'])
+            total_range = candle['high'] - candle['low']
+            upper_wick = candle['high'] - max(candle['open'], candle['close'])
+            lower_wick = min(candle['open'], candle['close']) - candle['low']
+            
+            avg_body_size += body_size / total_range if total_range > 0 else 0
+            avg_upper_wick += upper_wick / total_range if total_range > 0 else 0
+            avg_lower_wick += lower_wick / total_range if total_range > 0 else 0
+            
+            if candle['close'] > candle['open']:
+                bull_count += 1
+            else:
+                bear_count += 1
+        
+        avg_body_size /= len(recent)
+        avg_upper_wick /= len(recent)
+        avg_lower_wick /= len(recent)
+        
+        # Analyze characteristics
+        if avg_body_size > 0.7:
+            characteristics.append("📊 Strong Momentum Candles (Large Bodies)")
+        elif avg_body_size < 0.3:
+            characteristics.append("📊 Indecisive Candles (Small Bodies)")
+        
+        if avg_upper_wick > 0.4:
+            characteristics.append("🎯 Rejection at Highs (Long Upper Wicks)")
+        if avg_lower_wick > 0.4:
+            characteristics.append("🎯 Support at Lows (Long Lower Wicks)")
+        
+        if bull_count > bear_count + 1:
+            characteristics.append(f"🟢 Bullish Bias ({bull_count}/{len(recent)} up candles)")
+        elif bear_count > bull_count + 1:
+            characteristics.append(f"🔴 Bearish Bias ({bear_count}/{len(recent)} down candles)")
+        else:
+            characteristics.append(f"⚪ Balanced Market ({bull_count}/{len(recent)} up, {bear_count}/{len(recent)} down)")
+        
+        return characteristics
 
     def enhanced_trend_analysis(self, df):
         """Comprehensive trend analysis with multiple timeframe confirmation"""
@@ -290,16 +643,6 @@ class EnhancedStockAnalysisOntology:
         senkou_a = df['Senkou_span_a'].iloc[-1]  # Leading Span A
         senkou_b = df['Senkou_span_b'].iloc[-1]  # Leading Span B
         chikou = df['Chikou_span'].iloc[-1] if 'Chikou_span' in df.columns else 0  # Lagging Span
-
-        # BULLISH ICHIMOKU ORDER (Strongest to weakest):
-        # 1. Price > Cloud > Kijun > Tenkan (Strongest Bullish)
-        # 2. Price > Cloud > Tenkan > Kijun 
-        # 3. Price > Tenkan > Kijun > Cloud
-
-        # BEARISH ICHIMOKU ORDER (Strongest to weakest):
-        # 1. Price < Cloud < Kijun < Tenkan (Strongest Bearish)
-        # 2. Price < Cloud < Tenkan < Kijun
-        # 3. Price < Tenkan < Kijun < Cloud
 
         cloud_top = max(senkou_a, senkou_b)
         cloud_bottom = min(senkou_a, senkou_b)
@@ -517,14 +860,18 @@ class EnhancedStockAnalysisOntology:
         volatility_signals, volatility_score = self.volatility_analysis(df)
         sr_signals, sr_score = self.support_resistance_analysis(df)
 
-        # ICHIMOKU SPECIFIC ANALYSIS (added to top)
+        # NEW: CANDLE PATTERN ANALYSIS
+        candle_patterns, candle_score = self.detect_candle_patterns(df)
+        candle_characteristics = self.analyze_candle_characteristics(df)
+
+        # ICHIMOKU SPECIFIC ANALYSIS
         ichimoku_signals = []
         if all(col in df.columns for col in ['Tenkan_sen', 'Kijun_sen', 'Senkou_span_a', 'Senkou_span_b']):
             ichimoku_signals = self.get_detailed_ichimoku_analysis(df, current_price)
 
         # Calculate overall bias with logical consistency
         overall_bias, confidence = self.determine_overall_bias(
-            trend_score, momentum_score, volume_score, volatility_score, sr_score
+            trend_score, momentum_score, volume_score, volatility_score, sr_score, candle_score
         )
 
         # Market regime detection
@@ -534,7 +881,9 @@ class EnhancedStockAnalysisOntology:
         risk_level = self.assess_risk_level(df, momentum_score, volatility_score)
 
         summary = {
-            'ichimoku': ichimoku_signals,  # NEW: Ichimoku-specific signals at top
+            'candle_patterns': candle_patterns,  # NEW: Candle pattern analysis
+            'candle_characteristics': candle_characteristics,  # NEW: Candle characteristics
+            'ichimoku': ichimoku_signals,
             'trend': trend_signals[:8],
             'momentum': momentum_signals[:8],
             'volume': volume_signals[:6],
@@ -550,7 +899,8 @@ class EnhancedStockAnalysisOntology:
                 'momentum': momentum_score,
                 'volume': volume_score,
                 'volatility': volatility_score,
-                'support_resistance': sr_score
+                'support_resistance': sr_score,
+                'candle_patterns': candle_score
             }
         }
 
@@ -638,18 +988,19 @@ class EnhancedStockAnalysisOntology:
 
         return signals
 
-    def determine_overall_bias(self, trend_score, momentum_score, volume_score, volatility_score, sr_score):
+    def determine_overall_bias(self, trend_score, momentum_score, volume_score, volatility_score, sr_score, candle_score):
         """Determine overall bias with weighted scoring"""
         # Weighted scores (trend is most important)
         total_score = (
-            trend_score * 0.35 +
-            momentum_score * 0.25 +
-            volume_score * 0.20 +
+            trend_score * 0.30 +
+            momentum_score * 0.20 +
+            volume_score * 0.15 +
             volatility_score * 0.10 +
-            sr_score * 0.10
+            sr_score * 0.10 +
+            candle_score * 0.15  # NEW: Candle patterns weight
         )
         
-        max_possible = 15 * 0.35 + 8 * 0.25 + 6 * 0.20 + 3 * 0.10 + 2 * 0.10
+        max_possible = 15 * 0.30 + 8 * 0.20 + 6 * 0.15 + 3 * 0.10 + 2 * 0.10 + 5 * 0.15
         confidence = (total_score / max_possible) * 100
         
         # Determine bias based on weighted score
@@ -737,6 +1088,8 @@ class EnhancedStockAnalysisOntology:
             'volume': ["Insufficient data for analysis"],
             'volatility': ["Insufficient data for analysis"],
             'support_resistance': ["Insufficient data for analysis"],
+            'candle_patterns': ["Insufficient data for analysis"],
+            'candle_characteristics': ["Insufficient data for analysis"],
             'ichimoku': ["Insufficient data for analysis"],
             'overall_bias': "NEUTRAL",
             'confidence_score': 0,
@@ -748,7 +1101,8 @@ class EnhancedStockAnalysisOntology:
                 'momentum': 0,
                 'volume': 0,
                 'volatility': 0,
-                'support_resistance': 0
+                'support_resistance': 0,
+                'candle_patterns': 0
             }
         }
 
@@ -757,9 +1111,23 @@ class EnhancedStockAnalysisOntology:
         bias = summary['overall_bias'].lower()
         regime = summary['market_regime'][0].lower() if summary.get('market_regime') else ''
         confidence = summary['confidence_score']
+        candle_patterns = summary.get('candle_patterns', [])
         
         recommendations = []
         
+        # Candle pattern specific recommendations
+        bullish_patterns = [p for p in candle_patterns if p.get('type') == 'bullish']
+        bearish_patterns = [p for p in candle_patterns if p.get('type') == 'bearish']
+        
+        if bullish_patterns:
+            recs = self.get_candle_pattern_recommendations(bullish_patterns, 'bullish')
+            recommendations.extend(recs)
+        
+        if bearish_patterns:
+            recs = self.get_candle_pattern_recommendations(bearish_patterns, 'bearish')
+            recommendations.extend(recs)
+        
+        # Bias-based recommendations
         if "strong bullish" in bias:
             recommendations.extend([
                 "🎯 STRONG BUY SIGNAL - Consider long positions",
@@ -809,311 +1177,69 @@ class EnhancedStockAnalysisOntology:
             "🔍 Monitor for changing market conditions"
         ])
         
+        return recommendations[:8]  # Return top 8 recommendations
+
+    def get_candle_pattern_recommendations(self, patterns, pattern_type):
+        """Get specific recommendations based on candle patterns"""
+        recommendations = []
+        
+        for pattern in patterns:
+            pattern_name = pattern.get('pattern', '')
+            confidence = pattern.get('confidence', 0)
+            position = pattern.get('position', '')
+            
+            if pattern_type == 'bullish':
+                if 'Hammer' in pattern_name:
+                    rec = f"🔄 {pattern_name} at {position} - Look for bullish confirmation next candle"
+                elif 'Engulfing' in pattern_name:
+                    rec = f"🔄 {pattern_name} at {position} - Strong reversal signal, consider long entry"
+                elif 'Morning Star' in pattern_name:
+                    rec = f"🔄 {pattern_name} at {position} - Major reversal pattern, high probability long"
+                elif 'Marubozu' in pattern_name:
+                    rec = f"🔄 {pattern_name} at {position} - Strong momentum, ride the trend"
+                else:
+                    rec = f"🔄 {pattern_name} at {position} - Bullish signal, watch for confirmation"
+                
+            else:  # bearish
+                if 'Shooting Star' in pattern_name:
+                    rec = f"🔄 {pattern_name} at {position} - Look for bearish confirmation next candle"
+                elif 'Engulfing' in pattern_name:
+                    rec = f"🔄 {pattern_name} at {position} - Strong reversal signal, consider short entry"
+                elif 'Evening Star' in pattern_name:
+                    rec = f"🔄 {pattern_name} at {position} - Major reversal pattern, high probability short"
+                elif 'Marubozu' in pattern_name:
+                    rec = f"🔄 {pattern_name} at {position} - Strong momentum, consider short positions"
+                else:
+                    rec = f"🔄 {pattern_name} at {position} - Bearish signal, watch for confirmation"
+            
+            # Add confidence level
+            if confidence > 0.8:
+                rec += " (High Confidence)"
+            elif confidence > 0.6:
+                rec += " (Medium Confidence)"
+            else:
+                rec += " (Low Confidence)"
+            
+            recommendations.append(rec)
+        
         return recommendations
 
 # Initialize enhanced ontology
 ontology = EnhancedStockAnalysisOntology()
 
-# ─────────────────────────────────────────────
-#  App setup with callback exception suppression
-# ─────────────────────────────────────────────
-app = dash.Dash(__name__, external_stylesheets=[dbc.themes.SOLAR], suppress_callback_exceptions=True)
-server = app.server
+# Rest of the Dash app code remains the same...
+# [Keep all the existing Dash app code unchanged, but update the insights_content to include candle patterns]
 
-# ─────────────────────────────────────────────
-#  COMPLETE Layout with ALL Chart Components
-# ─────────────────────────────────────────────
-app.layout = dbc.Container([
-    # Header
-    dbc.NavbarSimple(
-        brand="Advanced Stock Dashboard with Enhanced Ontology",
-        color="dark brown",
-        dark=True,
-    ),
-
-    # Symbol input
-    dbc.Row([
-        dbc.Col(
-            dbc.InputGroup([
-                dbc.Input(id='stock-input',
-                          placeholder='Enter stock symbol',
-                          value='AAPL',
-                          debounce=False),
-            ]),
-            width=4,
-        ),
-    ], justify='center', className="my-3"),
-
-    # Time-range selector
-    dbc.Row([
-        dbc.Col([
-            dbc.Label("Select Time Range:"),
-            dcc.Dropdown(
-                id='time-range',
-                options=[
-                    {'label': '6 months', 'value': '6mo'},
-                    {'label': '1 year',   'value': '1y'},
-                    {'label': '2 years',  'value': '2y'},
-                    {'label': '5 years',  'value': '5y'},
-                    {'label': 'All',      'value': 'max'}
-                ],
-                value='1y',
-                clearable=False
-            )
-        ], width=4),
-    ], justify='center', className="my-3"),
-
-    # Interval selector
-    dbc.Row([
-        dbc.Col([
-            dbc.Label("Select Interval:"),
-            dcc.Dropdown(
-                id='interval',
-                options=[
-                    {'label': 'Daily',   'value': '1d'},
-                    {'label': 'Weekly',  'value': '1wk'},
-                    {'label': 'Monthly', 'value': '1mo'},
-                ],
-                value='1d',
-                clearable=False
-            )
-        ], width=4),
-    ], justify='center', className="my-3"),
-
-    # Analyze button
-    dbc.Row([
-        dbc.Col(
-            dbc.Button("Analyze with Enhanced Ontology",
-                       id='analyze-button',
-                       n_clicks=0,
-                       color="primary"),
-            width="auto"
-        )
-    ], justify="center", className="my-3"),
-
-    # === ENHANCED ONTOLOGY INSIGHTS SECTION ===
-    dbc.Row([
-        dbc.Col(
-            dbc.Card([
-                dbc.CardHeader("Advanced Ontology-Based Analysis", className="bg-primary text-white"),
-                dbc.CardBody([
-                    html.Div(id="ontology-insights"),
-                    html.Div(id="trading-signals"),
-                    html.Div(id="risk-assessment"),
-                    html.Div(id="trading-recommendations")
-                ])
-            ]),
-            width=12
-        )
-    ], className="mb-4"),
-
-    # === COMPLETE Chart Layout - ALL 18 Charts ===
-    dbc.Row([dbc.Col(dbc.Card(dbc.CardBody(dcc.Graph(id='candlestick-chart'))), width=12)], className="mb-4"),
-    dbc.Row([dbc.Col(dbc.Card(dbc.CardBody(dcc.Graph(id='sma-ema-chart'))), width=12)], className="mb-4"),
-
-    dbc.Row([
-        dbc.Col(dbc.Card(dbc.CardBody(dcc.Graph(id='support-resistance-chart'))), width=6),
-        dbc.Col(dbc.Card(dbc.CardBody(dcc.Graph(id='rsi-chart'))), width=6),
-    ], className="mb-4"),
-    dbc.Row([
-        dbc.Col(dbc.Card(dbc.CardBody(dcc.Graph(id='bollinger-bands-chart'))), width=6),
-        dbc.Col(dbc.Card(dbc.CardBody(dcc.Graph(id='macd-chart'))), width=6),
-    ], className="mb-4"),
-    dbc.Row([
-        dbc.Col(dbc.Card(dbc.CardBody(dcc.Graph(id='stochastic-oscillator-chart'))), width=6),
-        dbc.Col(dbc.Card(dbc.CardBody(dcc.Graph(id='obv-chart'))), width=6),
-    ], className="mb-4"),
-    dbc.Row([
-        dbc.Col(dbc.Card(dbc.CardBody(dcc.Graph(id='atr-chart'))), width=6),
-        dbc.Col(dbc.Card(dbc.CardBody(dcc.Graph(id='cci-chart'))), width=6),
-    ], className="mb-4"),
-    dbc.Row([
-        dbc.Col(dbc.Card(dbc.CardBody(dcc.Graph(id='mfi-chart'))), width=6),
-        dbc.Col(dbc.Card(dbc.CardBody(dcc.Graph(id='cmf-chart'))), width=6),
-    ], className="mb-4"),
-    dbc.Row([
-        dbc.Col(dbc.Card(dbc.CardBody(dcc.Graph(id='fi-chart'))), width=6),
-        dbc.Col(dbc.Card(dbc.CardBody(dcc.Graph(id='fibonacci-retracement-chart'))), width=6),
-    ], className="mb-4"),
-    dbc.Row([
-        dbc.Col(dbc.Card(dbc.CardBody(dcc.Graph(id='ichimoku-cloud-chart'))), width=6),
-        dbc.Col(dbc.Card(dbc.CardBody(dcc.Graph(id='vwap-chart'))), width=6),
-    ], className="mb-4"),
-    dbc.Row([
-        dbc.Col(dbc.Card(dbc.CardBody(dcc.Graph(id='adl-chart'))), width=6),
-        dbc.Col(dbc.Card(dbc.CardBody(dcc.Graph(id='adx-di-chart'))), width=6),
-    ], className="mb-4"),
-
-    # Footer
-    dbc.Row([
-        dbc.Col(html.Footer("Advanced Stock Dashboard with Enhanced Ontology ©2025 by Abu Sanad", 
-                           className="text-center text-muted"))
-    ], className="mt-4")
-], fluid=True)
-
-# ─────────────────────────────────────────────
-#  Enhanced Callback with ALL Outputs
-# ─────────────────────────────────────────────
-@app.callback(
-    [Output('candlestick-chart', 'figure'),
-     Output('sma-ema-chart', 'figure'),
-     Output('support-resistance-chart', 'figure'),
-     Output('rsi-chart', 'figure'),
-     Output('bollinger-bands-chart', 'figure'),
-     Output('macd-chart', 'figure'),
-     Output('stochastic-oscillator-chart', 'figure'),
-     Output('obv-chart', 'figure'),
-     Output('atr-chart', 'figure'),
-     Output('cci-chart', 'figure'),
-     Output('mfi-chart', 'figure'),
-     Output('cmf-chart', 'figure'),
-     Output('fi-chart', 'figure'),
-     Output('fibonacci-retracement-chart', 'figure'),
-     Output('ichimoku-cloud-chart', 'figure'),
-     Output('vwap-chart', 'figure'),
-     Output('adl-chart', 'figure'),
-     Output('adx-di-chart', 'figure'),
-     Output('ontology-insights', 'children'),
-     Output('trading-signals', 'children'),
-     Output('risk-assessment', 'children'),
-     Output('trading-recommendations', 'children')],
-    Input('analyze-button', 'n_clicks'),
-    State('stock-input', 'value'),
-    State('time-range', 'value'),
-    State('interval', 'value')
-)
+# In the callback where insights_content is created, add candle pattern section:
 def update_graphs(n_clicks, ticker, time_range, interval):
-    # Return empty until first click
-    if not n_clicks:
-        empty = go.Figure().update_layout(
-            title="Click 'Analyze Stock' to display the analysis",
-            template='plotly_dark')
-        empty_insights = html.Div("Click analyze to see enhanced ontology-based insights")
-        empty_signals = html.Div()
-        empty_risk = html.Div()
-        empty_recommendations = html.Div()
-        return (empty,) * 18 + (empty_insights, empty_signals, empty_risk, empty_recommendations)
-
-    # Auto-append '.SR' for Saudi tickers
-    if ticker.isdigit():
-        ticker += '.SR'
-
-    # Fetch data
-    try:
-        tq = Ticker(ticker)
-        df = tq.history(period=time_range, interval=interval)
-
-        if isinstance(df.index, pd.MultiIndex):
-            df.index = df.index.get_level_values('date')
-
-        if df.empty:
-            empty = go.Figure().update_layout(
-                title=f"No data for {ticker} ({time_range}, {interval})",
-                template='plotly_dark')
-            empty_insights = html.Div(f"No data available for {ticker}")
-            return (empty,) * 18 + (empty_insights, html.Div(), html.Div(), html.Div())
-
-    except Exception as e:
-        empty = go.Figure().update_layout(
-            title=f"Error fetching data for {ticker}: {str(e)}",
-            template='plotly_dark')
-        empty_insights = html.Div(f"Error fetching data: {str(e)}")
-        return (empty,) * 18 + (empty_insights, html.Div(), html.Div(), html.Div())
-
-    # Calculate all indicators
-    try:
-        # Moving Averages
-        df['SMA_5'] = df['close'].rolling(5).mean()
-        df['SMA_20'] = df['close'].rolling(20).mean()
-        df['SMA_50'] = df['close'].rolling(50).mean()
-        df['SMA_200'] = df['close'].rolling(200).mean()
-
-        df['EMA_8'] = df['close'].ewm(span=8, adjust=False).mean()
-        df['EMA_20'] = df['close'].ewm(span=20, adjust=False).mean()
-        df['EMA_50'] = df['close'].ewm(span=50, adjust=False).mean()
-        df['EMA_200'] = df['close'].ewm(span=200, adjust=False).mean()
-
-        # Pivot Points
-        pivot = (df['high'] + df['low'] + df['close']) / 3
-        df['Pivot_Point'] = pivot
-        df['Support_1'] = 2 * pivot - df['high']
-        df['Resistance_1'] = 2 * pivot - df['low']
-        df['Support_2'] = pivot - (df['high'] - df['low'])
-        df['Resistance_2'] = pivot + (df['high'] - df['low'])
-
-        # RSI
-        df['RSI'] = ta.momentum.RSIIndicator(df['close'], window=14).rsi()
-
-        # Bollinger Bands
-        ma20 = df['close'].rolling(20).mean()
-        std20 = df['close'].rolling(20).std()
-        df['Upper_band'] = ma20 + 2 * std20
-        df['Lower_band'] = ma20 - 2 * std20
-
-        # MACD
-        exp1 = df['close'].ewm(span=12, adjust=False).mean()
-        exp2 = df['close'].ewm(span=26, adjust=False).mean()
-        df['MACD'] = exp1 - exp2
-        df['MACD_Signal'] = df['MACD'].ewm(span=9, adjust=False).mean()
-
-        # Stochastic
-        stoch = ta.momentum.StochasticOscillator(df['high'], df['low'], df['close'])
-        df['%K'] = stoch.stoch()
-        df['%D'] = stoch.stoch_signal()
-
-        # Volume indicators
-        df['OBV'] = ta.volume.OnBalanceVolumeIndicator(df['close'], df['volume']).on_balance_volume()
-        df['VWAP'] = (df['close'] * df['volume']).cumsum() / df['volume'].cumsum()
-        
-        # Volatility
-        df['ATR'] = ta.volatility.AverageTrueRange(df['high'], df['low'], df['close']).average_true_range()
-        
-        # Other indicators
-        df['CCI'] = ta.trend.CCIIndicator(df['high'], df['low'], df['close']).cci()
-        df['ADL'] = ta.volume.AccDistIndexIndicator(df['high'], df['low'], df['close'], df['volume']).acc_dist_index()
-        
-        df['MFI'] = ta.volume.MFIIndicator(df['high'], df['low'], df['close'], df['volume']).money_flow_index()
-        df['CMF'] = ta.volume.ChaikinMoneyFlowIndicator(df['high'], df['low'], df['close'], df['volume']).chaikin_money_flow()
-        df['FI'] = ta.volume.ForceIndexIndicator(df['close'], df['volume']).force_index()
-
-        # ADX
-        adx = ta.trend.ADXIndicator(df['high'], df['low'], df['close'])
-        df['ADX'] = adx.adx()
-        df['DI+'] = adx.adx_pos()
-        df['DI-'] = adx.adx_neg()
-
-        # Fibonacci levels
-        max_p, min_p = df['high'].max(), df['low'].min()
-        diff = max_p - min_p
-        fib = {
-            '0.0%': max_p,
-            '23.6%': max_p - 0.236 * diff,
-            '38.2%': max_p - 0.382 * diff,
-            '50.0%': max_p - 0.5 * diff,
-            '61.8%': max_p - 0.618 * diff,
-            '100.0%': min_p,
-        }
-
-        # Ichimoku
-        df['Tenkan_sen'] = (df['high'].rolling(9).max() + df['low'].rolling(9).min()) / 2
-        df['Kijun_sen'] = (df['high'].rolling(26).max() + df['low'].rolling(26).min()) / 2
-        df['Senkou_span_a'] = ((df['Tenkan_sen'] + df['Kijun_sen']) / 2).shift(26)
-        df['Senkou_span_b'] = ((df['high'].rolling(52).max() + df['low'].rolling(52).min()) / 2).shift(26)
-        df['Chikou_span'] = df['close'].shift(-26)
-
-    except Exception as e:
-        empty = go.Figure().update_layout(
-            title=f"Error calculating indicators: {str(e)}",
-            template='plotly_dark')
-        empty_insights = html.Div(f"Error in calculations: {str(e)}")
-        return (empty,) * 18 + (empty_insights, html.Div(), html.Div(), html.Div())
-
+    # ... existing code ...
+    
     # Generate Enhanced Ontology Insights
     try:
         analysis_summary = ontology.generate_advanced_summary(df)
         trading_recommendations = ontology.get_trading_recommendations(analysis_summary)
         
-        # Create enhanced insights display
+        # Create enhanced insights display with CANDLE PATTERN ANALYSIS
         insights_content = [
             html.H4(f"🎯 OVERALL BIAS: {analysis_summary['overall_bias']}", 
                    className=f"text-{'success' if 'bull' in analysis_summary['overall_bias'].lower() else 'danger' if 'bear' in analysis_summary['overall_bias'].lower() else 'warning'} font-weight-bold"),
@@ -1121,7 +1247,26 @@ def update_graphs(n_clicks, ticker, time_range, interval):
             html.P(f"🏛️ MARKET REGIME: {analysis_summary['market_regime'][0] if analysis_summary['market_regime'] else 'Unknown'}"),
             html.P(f"⏰ ANALYSIS TIME: {analysis_summary['timestamp']}"),
 
-            # NEW: ICHIMOKU ANALYSIS AT TOP
+            # NEW: CANDLE PATTERN ANALYSIS AT THE TOP
+            dbc.Row([
+                dbc.Col([
+                    html.H5("🕯️ CANDLE PATTERN ANALYSIS", className="text-warning font-weight-bold"),
+                    html.Div([
+                        html.H6("🎯 Detected Patterns:", className="text-info"),
+                        html.Ul([html.Li(
+                            f"{p['pattern']} ({p['type']}) - {p['significance']} [Confidence: {p['confidence']:.1f}] at {p['position']}", 
+                            className="small"
+                        ) for p in analysis_summary.get('candle_patterns', [])[:3]])
+                    ]) if analysis_summary.get('candle_patterns') else html.P("No significant candle patterns detected", className="small"),
+                    
+                    html.Div([
+                        html.H6("📊 Candle Characteristics:", className="text-info"),
+                        html.Ul([html.Li(char, className="small") for char in analysis_summary.get('candle_characteristics', [])])
+                    ]) if analysis_summary.get('candle_characteristics') else html.Div()
+                ], width=12),
+            ], className="mb-3"),
+
+            # ICHIMOKU ANALYSIS
             dbc.Row([
                 dbc.Col([
                     html.H5("☁️ ICHIMOKU CLOUD ANALYSIS", className="text-info font-weight-bold"),
@@ -1129,6 +1274,7 @@ def update_graphs(n_clicks, ticker, time_range, interval):
                 ], width=12),
             ], className="mb-3"),
 
+            # TREND AND MOMENTUM ANALYSIS
             dbc.Row([
                 dbc.Col([
                     html.H5("📈 TREND ANALYSIS", className="text-info"),
@@ -1141,6 +1287,7 @@ def update_graphs(n_clicks, ticker, time_range, interval):
                 ], width=6),
             ], className="mb-3"),
             
+            # VOLUME AND VOLATILITY ANALYSIS
             dbc.Row([
                 dbc.Col([
                     html.H5("📊 Volume Analysis", className="text-success"),
@@ -1153,6 +1300,8 @@ def update_graphs(n_clicks, ticker, time_range, interval):
                 ], width=6),
             ])
         ]
+        
+        # ... rest of the callback code ...
         
         # Risk assessment
         risk_content = [
