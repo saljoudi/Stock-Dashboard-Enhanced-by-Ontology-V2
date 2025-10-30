@@ -1,12 +1,6 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[5]:
-
-
-#!/usr/bin/env python
-# coding: utf-8
-
 # In[2]:
 
 
@@ -158,77 +152,190 @@ class EnhancedStockAnalysisOntology:
             }
         }
 
+
     def enhanced_trend_analysis(self, df):
         """Comprehensive trend analysis with multiple timeframe confirmation"""
         signals = []
-        confidence_score = 0
-        max_confidence = 10
-        
-        if len(df) < 20:
+        trend_score = 0
+        max_score = 15
+
+        if len(df) < 50:
             return ["Insufficient data for trend analysis"], 0
-            
-        # Multi-timeframe MA analysis
+
         current_price = df['close'].iloc[-1]
-        
+
         # Calculate additional moving averages if needed
-        if 'SMA_5' not in df.columns:
-            df['SMA_5'] = df['close'].rolling(5).mean()
-        if 'EMA_8' not in df.columns:
-            df['EMA_8'] = df['close'].ewm(span=8).mean()
-            
-        short_term_bullish = (current_price > df['SMA_20'].iloc[-1] and
-                             current_price > df['EMA_8'].iloc[-1])
-        short_term_bearish = (current_price < df['SMA_20'].iloc[-1] and
-                             current_price < df['EMA_8'].iloc[-1])
-        
-        # Medium-term trend
-        medium_term_bullish = (current_price > df['SMA_50'].iloc[-1])
-        medium_term_bearish = (current_price < df['SMA_50'].iloc[-1])
-        
-        # Long-term trend
-        long_term_bullish = (current_price > df['SMA_200'].iloc[-1])
-        long_term_bearish = (current_price < df['SMA_200'].iloc[-1])
-        
-        # Trend scoring
-        if short_term_bullish and medium_term_bullish and long_term_bullish:
-            signals.append("🟢 Strong Uptrend: All timeframes aligned bullishly")
-            confidence_score += 3
-        elif short_term_bearish and medium_term_bearish and long_term_bearish:
-            signals.append("🔴 Strong Downtrend: All timeframes aligned bearishly")
-            confidence_score += 3
+        for period in [5, 8]:
+            if f'SMA_{period}' not in df.columns:
+                df[f'SMA_{period}'] = df['close'].rolling(period).mean()
+
+        # Multi-timeframe trend analysis with weighted scoring
+        timeframe_scores = {
+            'short_term': 0,
+            'medium_term': 0, 
+            'long_term': 0
+        }
+
+        # Short-term trend (5-20 days)
+        if current_price > df['SMA_20'].iloc[-1]:
+            timeframe_scores['short_term'] += 2
+            signals.append("🟢 Short-term: Above SMA 20")
         else:
-            mixed_signals = []
-            if short_term_bullish: 
-                mixed_signals.append("ST ↑")
-                confidence_score += 1
-            if medium_term_bullish: 
-                mixed_signals.append("MT ↑") 
-                confidence_score += 1
-            if long_term_bullish: 
-                mixed_signals.append("LT ↑")
-                confidence_score += 1
-            if short_term_bearish: 
-                mixed_signals.append("ST ↓")
-            if medium_term_bearish: 
-                mixed_signals.append("MT ↓")
-            if long_term_bearish: 
-                mixed_signals.append("LT ↓")
-                
-            signals.append(f"🟡 Mixed Trend: {' '.join(mixed_signals)}")
-        
-        # ADX trend strength
-        if 'ADX' in df.columns:
+            timeframe_scores['short_term'] -= 2
+            signals.append("🔴 Short-term: Below SMA 20")
+
+        if current_price > df['EMA_8'].iloc[-1]:
+            timeframe_scores['short_term'] += 1
+            signals.append("🟢 Short-term: Above EMA 8")
+        else:
+            timeframe_scores['short_term'] -= 1
+            signals.append("🔴 Short-term: Below EMA 8")
+
+        # Medium-term trend (50 days)
+        if current_price > df['SMA_50'].iloc[-1]:
+            timeframe_scores['medium_term'] += 3
+            signals.append("🟢 Medium-term: Above SMA 50")
+        else:
+            timeframe_scores['medium_term'] -= 3
+            signals.append("🔴 Medium-term: Below SMA 50")
+
+        # Long-term trend (200 days)
+        if current_price > df['SMA_200'].iloc[-1]:
+            timeframe_scores['long_term'] += 4
+            signals.append("🟢 Long-term: Above SMA 200")
+        else:
+            timeframe_scores['long_term'] -= 4
+            signals.append("🔴 Long-term: Below SMA 200")
+
+        # Trend alignment analysis
+        total_alignment = sum(timeframe_scores.values())
+
+        if total_alignment >= 6:
+            trend_strength = "🟢 STRONG UPTREND"
+            trend_score += 8
+        elif total_alignment >= 2:
+            trend_strength = "🟡 MODERATE UPTREND" 
+            trend_score += 5
+        elif total_alignment >= -2:
+            trend_strength = "⚪ MIXED/NEUTRAL TREND"
+            trend_score += 2
+        elif total_alignment >= -6:
+            trend_strength = "🟡 MODERATE DOWNTREND"
+            trend_score += 1
+        else:
+            trend_strength = "🔴 STRONG DOWNTREND"
+
+        signals.insert(0, trend_strength)
+
+        # ADX trend strength with DI analysis
+        if 'ADX' in df.columns and 'DI+' in df.columns and 'DI-' in df.columns:
             adx = df['ADX'].iloc[-1]
+            di_plus = df['DI+'].iloc[-1]
+            di_minus = df['DI-'].iloc[-1]
+
             if adx > 25:
-                signals.append(f"📈 Strong Trend (ADX: {adx:.1f})")
-                confidence_score += 2
+                if di_plus > di_minus:
+                    signals.append(f"📈 Strong Bullish Trend (ADX: {adx:.1f}, DI+ > DI-)")
+                    trend_score += 3
+                else:
+                    signals.append(f"📉 Strong Bearish Trend (ADX: {adx:.1f}, DI- > DI+)")
+                    trend_score -= 3
             elif adx > 20:
-                signals.append(f"↔️ Moderate Trend (ADX: {adx:.1f})")
-                confidence_score += 1
+                signals.append(f"↔️ Moderate Trend Strength (ADX: {adx:.1f})")
+                trend_score += 1
             else:
-                signals.append(f"⚪ Weak/No Trend (ADX: {adx:.1f})")
-        
-        return signals, min(confidence_score, max_confidence)
+                signals.append(f"⚪ Weak Trend (ADX: {adx:.1f})")
+
+        # ICHIMOKU CLOUD ANALYSIS - ORDER MATTERS!
+        if all(col in df.columns for col in ['Tenkan_sen', 'Kijun_sen', 'Senkou_span_a', 'Senkou_span_b']):
+            ichimoku_signals = self.analyze_ichimoku_cloud(df, current_price)
+            signals.extend(ichimoku_signals)
+            trend_score += len([s for s in ichimoku_signals if '🟢' in s or '🔴' in s]) * 0.5
+
+        # Moving average cross signals
+        cross_signals = self.detect_moving_average_crosses(df)
+        signals.extend(cross_signals)
+        trend_score += len(cross_signals) * 0.5
+
+        return signals, min(max(trend_score, 0), max_score)
+    def analyze_ichimoku_cloud(self, df, current_price):
+        """Analyze Ichimoku Cloud with emphasis on LINE ORDER importance"""
+        signals = []
+
+        tenkan = df['Tenkan_sen'].iloc[-1]  # Conversion Line (9-period)
+        kijun = df['Kijun_sen'].iloc[-1]    # Base Line (26-period)
+        senkou_a = df['Senkou_span_a'].iloc[-1]  # Leading Span A
+        senkou_b = df['Senkou_span_b'].iloc[-1]  # Leading Span B
+        chikou = df['Chikou_span'].iloc[-1] if 'Chikou_span' in df.columns else 0  # Lagging Span
+
+        # BULLISH ICHIMOKU ORDER (Strongest to weakest):
+        # 1. Price > Cloud > Kijun > Tenkan (Strongest Bullish)
+        # 2. Price > Cloud > Tenkan > Kijun 
+        # 3. Price > Tenkan > Kijun > Cloud
+
+        # BEARISH ICHIMOKU ORDER (Strongest to weakest):
+        # 1. Price < Cloud < Kijun < Tenkan (Strongest Bearish)
+        # 2. Price < Cloud < Tenkan < Kijun
+        # 3. Price < Tenkan < Kijun < Cloud
+
+        cloud_top = max(senkou_a, senkou_b)
+        cloud_bottom = min(senkou_a, senkou_b)
+
+        # Determine line order and generate signals
+        price_above_cloud = current_price > cloud_top
+        price_below_cloud = current_price < cloud_bottom
+        price_in_cloud = cloud_bottom <= current_price <= cloud_top
+
+        tenkan_above_kijun = tenkan > kijun
+        price_above_kijun = current_price > kijun
+        price_above_tenkan = current_price > tenkan
+
+        # ICHIMOKU LINE ORDER ANALYSIS
+        if price_above_cloud:
+            if price_above_kijun and tenkan_above_kijun:
+                if current_price > tenkan:
+                    # STRONGEST BULLISH: Price > Tenkan > Kijun > Cloud
+                    signals.append("☁️ ICHIMOKU: STRONG BULLISH (Price > Tenkan > Kijun > Cloud)")
+                else:
+                    # BULLISH: Price > Cloud > Kijun > Tenkan
+                    signals.append("☁️ ICHIMOKU: BULLISH (Price > Cloud > Kijun > Tenkan)")
+            else:
+                signals.append("☁️ ICHIMOKU: MILD BULLISH (Price above Cloud)")
+
+        elif price_below_cloud:
+            if not price_above_kijun and not tenkan_above_kijun:
+                if current_price < tenkan:
+                    # STRONGEST BEARISH: Price < Tenkan < Kijun < Cloud
+                    signals.append("☁️ ICHIMOKU: STRONG BEARISH (Price < Tenkan < Kijun < Cloud)")
+                else:
+                    # BEARISH: Price < Cloud < Kijun < Tenkan
+                    signals.append("☁️ ICHIMOKU: BEARISH (Price < Cloud < Kijun < Tenkan)")
+            else:
+                signals.append("☁️ ICHIMOKU: MILD BEARISH (Price below Cloud)")
+
+        else:  # Price in cloud
+            signals.append("☁️ ICHIMOKU: NEUTRAL (Price inside Cloud)")
+
+        # TENKAN-KIJUN CROSS SIGNALS (Important momentum)
+        if tenkan_above_kijun:
+            signals.append("🟢 Tenkan > Kijun (Bullish Momentum)")
+        else:
+            signals.append("🔴 Tenkan < Kijun (Bearish Momentum)")
+
+        # CLOUD COLOR ANALYSIS (Future sentiment)
+        if senkou_a > senkou_b:
+            signals.append("🟢 Cloud Color: Green (Bullish Future)")
+        else:
+            signals.append("🔴 Cloud Color: Red (Bearish Future)")
+
+        # CHIKOU SPAN ANALYSIS (Lagging confirmation)
+        if chikou != 0:
+            if chikou > current_price:
+                signals.append("📈 Chikou Span: Above Price (Bullish Confirmation)")
+            else:
+                signals.append("📉 Chikou Span: Below Price (Bearish Confirmation)")
+
+        return signals
 
     def enhanced_momentum_analysis(self, df):
         """Multi-indicator momentum analysis with divergence detection"""
@@ -367,41 +474,139 @@ class EnhancedStockAnalysisOntology:
         return signals
 
     def generate_advanced_summary(self, df):
-        """Generate comprehensive analysis with confidence scoring"""
-        if len(df) < 20:
+        """Generate comprehensive analysis with logical consistency"""
+        if len(df) < 50:
             return self._insufficient_data_summary()
-            
+
+        current_price = df['close'].iloc[-1] if len(df) > 0 else 0
+
+        # Get all analysis components
         trend_signals, trend_score = self.enhanced_trend_analysis(df)
         momentum_signals, momentum_score = self.enhanced_momentum_analysis(df)
         volume_signals, volume_score = self.enhanced_volume_analysis(df)
-        volatility_signals = self.volatility_analysis(df)
-        sr_signals = self.support_resistance_analysis(df)
-        
-        # Overall confidence score (0-10)
-        total_score = trend_score + momentum_score + volume_score
-        max_possible = 10 + 8 + 6  # Max scores from each category
-        confidence_percentage = (total_score / max_possible) * 100
-        
+        volatility_signals, volatility_score = self.volatility_analysis(df)
+        sr_signals, sr_score = self.support_resistance_analysis(df)
+
+        # ICHIMOKU SPECIFIC ANALYSIS (added to top)
+        ichimoku_signals = []
+        if all(col in df.columns for col in ['Tenkan_sen', 'Kijun_sen', 'Senkou_span_a', 'Senkou_span_b']):
+            ichimoku_signals = self.get_detailed_ichimoku_analysis(df, current_price)
+
+        # Calculate overall bias with logical consistency
+        overall_bias, confidence = self.determine_overall_bias(
+            trend_score, momentum_score, volume_score, volatility_score, sr_score
+        )
+
         # Market regime detection
-        market_regime = self.detect_market_regime(df)
-        
+        market_regime = self.detect_market_regime(df, trend_score, volatility_score)
+
         # Risk assessment
-        risk_level = self.assess_risk_level(df)
-        
+        risk_level = self.assess_risk_level(df, momentum_score, volatility_score)
+
         summary = {
-            'trend': trend_signals,
-            'momentum': momentum_signals,
-            'volume': volume_signals,
+            'ichimoku': ichimoku_signals,  # NEW: Ichimoku-specific signals at top
+            'trend': trend_signals[:8],
+            'momentum': momentum_signals[:8],
+            'volume': volume_signals[:6],
             'volatility': volatility_signals,
             'support_resistance': sr_signals,
-            'overall_bias': self.determine_advanced_bias(trend_score, momentum_score, volume_score),
-            'confidence_score': confidence_percentage,
             'market_regime': market_regime,
+            'overall_bias': overall_bias,
+            'confidence_score': confidence,
             'risk_assessment': risk_level,
-            'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            'detailed_scores': {
+                'trend': trend_score,
+                'momentum': momentum_score,
+                'volume': volume_score,
+                'volatility': volatility_score,
+                'support_resistance': sr_score
+            }
         }
-        
+
         return summary
+
+    def get_detailed_ichimoku_analysis(self, df, current_price):
+        """Get detailed Ichimoku analysis focusing on LINE ORDER importance"""
+        signals = []
+
+        tenkan = df['Tenkan_sen'].iloc[-1]
+        kijun = df['Kijun_sen'].iloc[-1]
+        senkou_a = df['Senkou_span_a'].iloc[-1]
+        senkou_b = df['Senkou_span_b'].iloc[-1]
+
+        cloud_top = max(senkou_a, senkou_b)
+        cloud_bottom = min(senkou_a, senkou_b)
+
+        # LINE ORDER ANALYSIS - THIS IS CRITICAL!
+        signals.append("🎯 ICHIMOKU LINE ORDER ANALYSIS:")
+
+        # Determine the current line order
+        lines = [
+            ("Price", current_price),
+            ("Tenkan", tenkan),
+            ("Kijun", kijun), 
+            ("Cloud Top", cloud_top),
+            ("Cloud Bottom", cloud_bottom)
+        ]
+
+        # Sort by value to see the actual order
+        sorted_lines = sorted(lines, key=lambda x: x[1], reverse=True)
+        current_order = " > ".join([f"{name}" for name, val in sorted_lines])
+
+        signals.append(f"   Current Order: {current_order}")
+
+        # STRONG BULLISH PATTERNS
+        if (current_price > tenkan > kijun > cloud_top):
+            signals.append("   🟢 STRONGEST BULLISH: Price > Tenkan > Kijun > Cloud")
+        elif (current_price > cloud_top > kijun > tenkan):
+            signals.append("   🟢 BULLISH: Price > Cloud > Kijun > Tenkan")
+        elif (current_price > tenkan > cloud_top > kijun):
+            signals.append("   🟢 BULLISH: Price > Tenkan > Cloud > Kijun")
+
+        # STRONG BEARISH PATTERNS  
+        elif (current_price < tenkan < kijun < cloud_bottom):
+            signals.append("   🔴 STRONGEST BEARISH: Price < Tenkan < Kijun < Cloud")
+        elif (current_price < cloud_bottom < kijun < tenkan):
+            signals.append("   🔴 BEARISH: Price < Cloud < Kijun < Tenkan")
+        elif (current_price < tenkan < cloud_bottom < kijun):
+            signals.append("   🔴 BEARISH: Price < Tenkan < Cloud < Kijun")
+
+        # NEUTRAL/TRANSITION PATTERNS
+        else:
+            signals.append("   ⚪ MIXED ORDER: Transition or ranging market")
+
+        # INDIVIDUAL COMPONENT SIGNALS
+        signals.append("   📊 Component Analysis:")
+
+        # Price vs Cloud
+        if current_price > cloud_top:
+            signals.append("     🟢 Price ABOVE Cloud (Bullish)")
+        elif current_price < cloud_bottom:
+            signals.append("     🔴 Price BELOW Cloud (Bearish)")
+        else:
+            signals.append("     ⚪ Price IN Cloud (Neutral)")
+
+        # Tenkan vs Kijun
+        if tenkan > kijun:
+            signals.append("     🟢 Tenkan > Kijun (Bullish Momentum)")
+        else:
+            signals.append("     🔴 Tenkan < Kijun (Bearish Momentum)")
+
+        # Cloud Color (Future sentiment)
+        if senkou_a > senkou_b:
+            signals.append("     🟢 Cloud Color: Green (Bullish Future Bias)")
+        else:
+            signals.append("     🔴 Cloud Color: Red (Bearish Future Bias)")
+
+        # Cloud Thickness (Volatility)
+        cloud_thickness = (cloud_top - cloud_bottom) / current_price * 100
+        if cloud_thickness > 5:
+            signals.append(f"     🌪️ Thick Cloud ({cloud_thickness:.1f}% - High Volatility)")
+        elif cloud_thickness < 2:
+            signals.append(f"     🍃 Thin Cloud ({cloud_thickness:.1f}% - Low Volatility)")
+
+        return signals
 
     def detect_market_regime(self, df):
         """Detect current market regime"""
@@ -714,10 +919,9 @@ def update_graphs(n_clicks, ticker, time_range, interval):
         df['SMA_20'] = df['close'].rolling(20).mean()
         df['SMA_50'] = df['close'].rolling(50).mean()
         df['SMA_200'] = df['close'].rolling(200).mean()
-
-        df['EMA_20'] = df['close'].ewm(span=20, adjust=False).mean()
-        df['EMA_50'] = df['close'].ewm(span=50, adjust=False).mean()
-        df['EMA_200'] = df['close'].ewm(span=200, adjust=False).mean()
+        
+        for ema_period in [8, 20, 21, 50, 55, 200]:
+            df[f'EMA_{ema_period}'] = df['close'].ewm(span=ema_period, adjust=False).mean()
 
         # Pivot Points
         pivot = (df['high'] + df['low'] + df['close']) / 3
@@ -800,24 +1004,35 @@ def update_graphs(n_clicks, ticker, time_range, interval):
         trading_recommendations = ontology.get_trading_recommendations(analysis_summary)
         
         # Create enhanced insights display
+# In the Dash layout, update the insights section:
         insights_content = [
-            html.H4(f"Overall Bias: {analysis_summary['overall_bias']}", 
-                   className=f"text-{'success' if 'bull' in analysis_summary['overall_bias'].lower() else 'danger' if 'bear' in analysis_summary['overall_bias'].lower() else 'warning'}"),
-            html.H5(f"Confidence Score: {analysis_summary['confidence_score']:.1f}%"),
-            html.P(f"Market Regime: {analysis_summary['market_regime']}"),
-            html.P(f"Analysis Time: {analysis_summary['timestamp']}"),
-            
+            html.H4(f"🎯 OVERALL BIAS: {analysis_summary['overall_bias']}", 
+                   className=f"text-{'success' if 'bull' in analysis_summary['overall_bias'].lower() else 'danger' if 'bear' in analysis_summary['overall_bias'].lower() else 'warning'} font-weight-bold"),
+            html.H5(f"📊 CONFIDENCE SCORE: {analysis_summary['confidence_score']:.1f}%"),
+            html.P(f"🏛️ MARKET REGIME: {analysis_summary['market_regime'][0] if analysis_summary['market_regime'] else 'Unknown'}"),
+            html.P(f"⏰ ANALYSIS TIME: {analysis_summary['timestamp']}"),
+
+            # NEW: ICHIMOKU ANALYSIS AT TOP
             dbc.Row([
                 dbc.Col([
-                    html.H5("📈 Trend Analysis"),
-                    html.Ul([html.Li(signal) for signal in analysis_summary['trend'][:5]])
-                ], width=6),
-                
+                    html.H5("☁️ ICHIMOKU CLOUD ANALYSIS", className="text-info font-weight-bold"),
+                    html.Ul([html.Li(signal, className="small") for signal in analysis_summary.get('ichimoku', ['No Ichimoku data'])[:10]])
+                ], width=12),
+            ], className="mb-3"),
+
+            dbc.Row([
                 dbc.Col([
-                    html.H5("⚡ Momentum Analysis"), 
-                    html.Ul([html.Li(signal) for signal in analysis_summary['momentum'][:5]])
+                    html.H5("📈 TREND ANALYSIS", className="text-info"),
+                    html.Ul([html.Li(signal, className="small") for signal in analysis_summary['trend'][:6]])
+                ], width=6),
+
+                dbc.Col([
+                    html.H5("⚡ MOMENTUM ANALYSIS", className="text-warning"), 
+                    html.Ul([html.Li(signal, className="small") for signal in analysis_summary['momentum'][:6]])
                 ], width=6),
             ], className="mb-3"),
+
+            # ... rest of the layout
             
             dbc.Row([
                 dbc.Col([
@@ -1003,19 +1218,6 @@ if __name__ == '__main__':
 
 
 # In[ ]:
-
-
-
-
-
-# In[ ]:
-
-
-
-
-
-# In[ ]:
-
 
 
 
