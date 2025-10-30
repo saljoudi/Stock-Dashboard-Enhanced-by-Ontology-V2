@@ -1,7 +1,7 @@
-# #!/usr/bin/env python
-# # coding: utf-8
+#!/usr/bin/env python
+# coding: utf-8
 
-# # In[2]:
+# In[2]:
 
 
 import dash
@@ -16,13 +16,6 @@ import warnings
 from datetime import datetime, timedelta
 import numpy as np
 warnings.filterwarnings("ignore")
-
-# #!/usr/bin/env python
-# # coding: utf-8
-
-# # In[2]:
-
-
 
 # ─────────────────────────────────────────────
 #  ENHANCED Stock Analysis Ontology with Candle Pattern Knowledge Layer
@@ -1227,13 +1220,300 @@ class EnhancedStockAnalysisOntology:
 # Initialize enhanced ontology
 ontology = EnhancedStockAnalysisOntology()
 
-# Rest of the Dash app code remains the same...
-# [Keep all the existing Dash app code unchanged, but update the insights_content to include candle patterns]
+# ─────────────────────────────────────────────
+#  App setup with callback exception suppression
+# ─────────────────────────────────────────────
+app = dash.Dash(__name__, external_stylesheets=[dbc.themes.SOLAR], suppress_callback_exceptions=True)
+server = app.server
 
-# In the callback where insights_content is created, add candle pattern section:
+# ─────────────────────────────────────────────
+#  COMPLETE Layout with ALL Chart Components
+# ─────────────────────────────────────────────
+app.layout = dbc.Container([
+    # Header
+    dbc.NavbarSimple(
+        brand="Advanced Stock Dashboard with Enhanced Ontology",
+        color="dark brown",
+        dark=True,
+    ),
+
+    # Symbol input
+    dbc.Row([
+        dbc.Col(
+            dbc.InputGroup([
+                dbc.Input(id='stock-input',
+                          placeholder='Enter stock symbol',
+                          value='AAPL',
+                          debounce=False),
+            ]),
+            width=4,
+        ),
+    ], justify='center', className="my-3"),
+
+    # Time-range selector
+    dbc.Row([
+        dbc.Col([
+            dbc.Label("Select Time Range:"),
+            dcc.Dropdown(
+                id='time-range',
+                options=[
+                    {'label': '6 months', 'value': '6mo'},
+                    {'label': '1 year',   'value': '1y'},
+                    {'label': '2 years',  'value': '2y'},
+                    {'label': '5 years',  'value': '5y'},
+                    {'label': 'All',      'value': 'max'}
+                ],
+                value='1y',
+                clearable=False
+            )
+        ], width=4),
+    ], justify='center', className="my-3"),
+
+    # Interval selector
+    dbc.Row([
+        dbc.Col([
+            dbc.Label("Select Interval:"),
+            dcc.Dropdown(
+                id='interval',
+                options=[
+                    {'label': 'Daily',   'value': '1d'},
+                    {'label': 'Weekly',  'value': '1wk'},
+                    {'label': 'Monthly', 'value': '1mo'},
+                ],
+                value='1d',
+                clearable=False
+            )
+        ], width=4),
+    ], justify='center', className="my-3"),
+
+    # Analyze button
+    dbc.Row([
+        dbc.Col(
+            dbc.Button("Analyze with Enhanced Ontology",
+                       id='analyze-button',
+                       n_clicks=0,
+                       color="primary"),
+            width="auto"
+        )
+    ], justify="center", className="my-3"),
+
+    # === ENHANCED ONTOLOGY INSIGHTS SECTION ===
+    dbc.Row([
+        dbc.Col(
+            dbc.Card([
+                dbc.CardHeader("Advanced Ontology-Based Analysis", className="bg-primary text-white"),
+                dbc.CardBody([
+                    html.Div(id="ontology-insights"),
+                    html.Div(id="trading-signals"),
+                    html.Div(id="risk-assessment"),
+                    html.Div(id="trading-recommendations")
+                ])
+            ]),
+            width=12
+        )
+    ], className="mb-4"),
+
+    # === COMPLETE Chart Layout - ALL 18 Charts ===
+    dbc.Row([dbc.Col(dbc.Card(dbc.CardBody(dcc.Graph(id='candlestick-chart'))), width=12)], className="mb-4"),
+    dbc.Row([dbc.Col(dbc.Card(dbc.CardBody(dcc.Graph(id='sma-ema-chart'))), width=12)], className="mb-4"),
+
+    dbc.Row([
+        dbc.Col(dbc.Card(dbc.CardBody(dcc.Graph(id='support-resistance-chart'))), width=6),
+        dbc.Col(dbc.Card(dbc.CardBody(dcc.Graph(id='rsi-chart'))), width=6),
+    ], className="mb-4"),
+    dbc.Row([
+        dbc.Col(dbc.Card(dbc.CardBody(dcc.Graph(id='bollinger-bands-chart'))), width=6),
+        dbc.Col(dbc.Card(dbc.CardBody(dcc.Graph(id='macd-chart'))), width=6),
+    ], className="mb-4"),
+    dbc.Row([
+        dbc.Col(dbc.Card(dbc.CardBody(dcc.Graph(id='stochastic-oscillator-chart'))), width=6),
+        dbc.Col(dbc.Card(dbc.CardBody(dcc.Graph(id='obv-chart'))), width=6),
+    ], className="mb-4"),
+    dbc.Row([
+        dbc.Col(dbc.Card(dbc.CardBody(dcc.Graph(id='atr-chart'))), width=6),
+        dbc.Col(dbc.Card(dbc.CardBody(dcc.Graph(id='cci-chart'))), width=6),
+    ], className="mb-4"),
+    dbc.Row([
+        dbc.Col(dbc.Card(dbc.CardBody(dcc.Graph(id='mfi-chart'))), width=6),
+        dbc.Col(dbc.Card(dbc.CardBody(dcc.Graph(id='cmf-chart'))), width=6),
+    ], className="mb-4"),
+    dbc.Row([
+        dbc.Col(dbc.Card(dbc.CardBody(dcc.Graph(id='fi-chart'))), width=6),
+        dbc.Col(dbc.Card(dbc.CardBody(dcc.Graph(id='fibonacci-retracement-chart'))), width=6),
+    ], className="mb-4"),
+    dbc.Row([
+        dbc.Col(dbc.Card(dbc.CardBody(dcc.Graph(id='ichimoku-cloud-chart'))), width=6),
+        dbc.Col(dbc.Card(dbc.CardBody(dcc.Graph(id='vwap-chart'))), width=6),
+    ], className="mb-4"),
+    dbc.Row([
+        dbc.Col(dbc.Card(dbc.CardBody(dcc.Graph(id='adl-chart'))), width=6),
+        dbc.Col(dbc.Card(dbc.CardBody(dcc.Graph(id='adx-di-chart'))), width=6),
+    ], className="mb-4"),
+
+    # Footer
+    dbc.Row([
+        dbc.Col(html.Footer("Advanced Stock Dashboard with Enhanced Ontology ©2025 by Abu Sanad", 
+                           className="text-center text-muted"))
+    ], className="mt-4")
+], fluid=True)
+
+# ─────────────────────────────────────────────
+#  Enhanced Callback with ALL Outputs
+# ─────────────────────────────────────────────
+@app.callback(
+    [Output('candlestick-chart', 'figure'),
+     Output('sma-ema-chart', 'figure'),
+     Output('support-resistance-chart', 'figure'),
+     Output('rsi-chart', 'figure'),
+     Output('bollinger-bands-chart', 'figure'),
+     Output('macd-chart', 'figure'),
+     Output('stochastic-oscillator-chart', 'figure'),
+     Output('obv-chart', 'figure'),
+     Output('atr-chart', 'figure'),
+     Output('cci-chart', 'figure'),
+     Output('mfi-chart', 'figure'),
+     Output('cmf-chart', 'figure'),
+     Output('fi-chart', 'figure'),
+     Output('fibonacci-retracement-chart', 'figure'),
+     Output('ichimoku-cloud-chart', 'figure'),
+     Output('vwap-chart', 'figure'),
+     Output('adl-chart', 'figure'),
+     Output('adx-di-chart', 'figure'),
+     Output('ontology-insights', 'children'),
+     Output('trading-signals', 'children'),
+     Output('risk-assessment', 'children'),
+     Output('trading-recommendations', 'children')],
+    Input('analyze-button', 'n_clicks'),
+    State('stock-input', 'value'),
+    State('time-range', 'value'),
+    State('interval', 'value')
+)
 def update_graphs(n_clicks, ticker, time_range, interval):
-    # ... existing code ...
-    
+    # Return empty until first click
+    if not n_clicks:
+        empty = go.Figure().update_layout(
+            title="Click 'Analyze Stock' to display the analysis",
+            template='plotly_dark')
+        empty_insights = html.Div("Click analyze to see enhanced ontology-based insights")
+        empty_signals = html.Div()
+        empty_risk = html.Div()
+        empty_recommendations = html.Div()
+        return (empty,) * 18 + (empty_insights, empty_signals, empty_risk, empty_recommendations)
+
+    # Auto-append '.SR' for Saudi tickers
+    if ticker.isdigit():
+        ticker += '.SR'
+
+    # Fetch data
+    try:
+        tq = Ticker(ticker)
+        df = tq.history(period=time_range, interval=interval)
+
+        if isinstance(df.index, pd.MultiIndex):
+            df.index = df.index.get_level_values('date')
+
+        if df.empty:
+            empty = go.Figure().update_layout(
+                title=f"No data for {ticker} ({time_range}, {interval})",
+                template='plotly_dark')
+            empty_insights = html.Div(f"No data available for {ticker}")
+            return (empty,) * 18 + (empty_insights, html.Div(), html.Div(), html.Div())
+
+    except Exception as e:
+        empty = go.Figure().update_layout(
+            title=f"Error fetching data for {ticker}: {str(e)}",
+            template='plotly_dark')
+        empty_insights = html.Div(f"Error fetching data: {str(e)}")
+        return (empty,) * 18 + (empty_insights, html.Div(), html.Div(), html.Div())
+
+    # Calculate all indicators
+    try:
+        # Moving Averages
+        df['SMA_5'] = df['close'].rolling(5).mean()
+        df['SMA_20'] = df['close'].rolling(20).mean()
+        df['SMA_50'] = df['close'].rolling(50).mean()
+        df['SMA_200'] = df['close'].rolling(200).mean()
+
+        df['EMA_8'] = df['close'].ewm(span=8, adjust=False).mean()
+        df['EMA_20'] = df['close'].ewm(span=20, adjust=False).mean()
+        df['EMA_50'] = df['close'].ewm(span=50, adjust=False).mean()
+        df['EMA_200'] = df['close'].ewm(span=200, adjust=False).mean()
+
+        # Pivot Points
+        pivot = (df['high'] + df['low'] + df['close']) / 3
+        df['Pivot_Point'] = pivot
+        df['Support_1'] = 2 * pivot - df['high']
+        df['Resistance_1'] = 2 * pivot - df['low']
+        df['Support_2'] = pivot - (df['high'] - df['low'])
+        df['Resistance_2'] = pivot + (df['high'] - df['low'])
+
+        # RSI
+        df['RSI'] = ta.momentum.RSIIndicator(df['close'], window=14).rsi()
+
+        # Bollinger Bands
+        ma20 = df['close'].rolling(20).mean()
+        std20 = df['close'].rolling(20).std()
+        df['Upper_band'] = ma20 + 2 * std20
+        df['Lower_band'] = ma20 - 2 * std20
+
+        # MACD
+        exp1 = df['close'].ewm(span=12, adjust=False).mean()
+        exp2 = df['close'].ewm(span=26, adjust=False).mean()
+        df['MACD'] = exp1 - exp2
+        df['MACD_Signal'] = df['MACD'].ewm(span=9, adjust=False).mean()
+
+        # Stochastic
+        stoch = ta.momentum.StochasticOscillator(df['high'], df['low'], df['close'])
+        df['%K'] = stoch.stoch()
+        df['%D'] = stoch.stoch_signal()
+
+        # Volume indicators
+        df['OBV'] = ta.volume.OnBalanceVolumeIndicator(df['close'], df['volume']).on_balance_volume()
+        df['VWAP'] = (df['close'] * df['volume']).cumsum() / df['volume'].cumsum()
+        
+        # Volatility
+        df['ATR'] = ta.volatility.AverageTrueRange(df['high'], df['low'], df['close']).average_true_range()
+        
+        # Other indicators
+        df['CCI'] = ta.trend.CCIIndicator(df['high'], df['low'], df['close']).cci()
+        df['ADL'] = ta.volume.AccDistIndexIndicator(df['high'], df['low'], df['close'], df['volume']).acc_dist_index()
+        
+        df['MFI'] = ta.volume.MFIIndicator(df['high'], df['low'], df['close'], df['volume']).money_flow_index()
+        df['CMF'] = ta.volume.ChaikinMoneyFlowIndicator(df['high'], df['low'], df['close'], df['volume']).chaikin_money_flow()
+        df['FI'] = ta.volume.ForceIndexIndicator(df['close'], df['volume']).force_index()
+
+        # ADX
+        adx = ta.trend.ADXIndicator(df['high'], df['low'], df['close'])
+        df['ADX'] = adx.adx()
+        df['DI+'] = adx.adx_pos()
+        df['DI-'] = adx.adx_neg()
+
+        # Fibonacci levels
+        max_p, min_p = df['high'].max(), df['low'].min()
+        diff = max_p - min_p
+        fib = {
+            '0.0%': max_p,
+            '23.6%': max_p - 0.236 * diff,
+            '38.2%': max_p - 0.382 * diff,
+            '50.0%': max_p - 0.5 * diff,
+            '61.8%': max_p - 0.618 * diff,
+            '100.0%': min_p,
+        }
+
+        # Ichimoku
+        df['Tenkan_sen'] = (df['high'].rolling(9).max() + df['low'].rolling(9).min()) / 2
+        df['Kijun_sen'] = (df['high'].rolling(26).max() + df['low'].rolling(26).min()) / 2
+        df['Senkou_span_a'] = ((df['Tenkan_sen'] + df['Kijun_sen']) / 2).shift(26)
+        df['Senkou_span_b'] = ((df['high'].rolling(52).max() + df['low'].rolling(52).min()) / 2).shift(26)
+        df['Chikou_span'] = df['close'].shift(-26)
+
+    except Exception as e:
+        empty = go.Figure().update_layout(
+            title=f"Error calculating indicators: {str(e)}",
+            template='plotly_dark')
+        empty_insights = html.Div(f"Error in calculations: {str(e)}")
+        return (empty,) * 18 + (empty_insights, html.Div(), html.Div(), html.Div())
+
     # Generate Enhanced Ontology Insights
     try:
         analysis_summary = ontology.generate_advanced_summary(df)
@@ -1300,8 +1580,7 @@ def update_graphs(n_clicks, ticker, time_range, interval):
                 ], width=6),
             ])
         ]
-        
-        # ... rest of the callback code ...
+
         
         # Risk assessment
         risk_content = [
