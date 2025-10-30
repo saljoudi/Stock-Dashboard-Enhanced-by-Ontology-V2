@@ -168,6 +168,8 @@ class EnhancedStockAnalysisOntology:
         for period in [5, 8]:
             if f'SMA_{period}' not in df.columns:
                 df[f'SMA_{period}'] = df['close'].rolling(period).mean()
+            if f'EMA_{period}' not in df.columns:
+                df[f'EMA_{period}'] = df['close'].ewm(span=period, adjust=False).mean()
 
         # Multi-timeframe trend analysis with weighted scoring
         timeframe_scores = {
@@ -258,6 +260,27 @@ class EnhancedStockAnalysisOntology:
         trend_score += len(cross_signals) * 0.5
 
         return signals, min(max(trend_score, 0), max_score)
+
+    def detect_moving_average_crosses(self, df):
+        """Detect significant moving average crosses"""
+        signals = []
+        
+        # Golden/Death Cross
+        if len(df) > 50 and 'SMA_50' in df.columns and 'SMA_200' in df.columns:
+            sma_50_current = df['SMA_50'].iloc[-1]
+            sma_200_current = df['SMA_200'].iloc[-1]
+            sma_50_prev = df['SMA_50'].iloc[-2] if len(df) > 1 else sma_50_current
+            sma_200_prev = df['SMA_200'].iloc[-2] if len(df) > 1 else sma_200_current
+            
+            # Golden Cross
+            if (sma_50_current > sma_200_current and sma_50_prev <= sma_200_prev):
+                signals.append("💰 GOLDEN CROSS: SMA 50 crossed above SMA 200")
+            # Death Cross
+            elif (sma_50_current < sma_200_current and sma_50_prev >= sma_200_prev):
+                signals.append("💀 DEATH CROSS: SMA 50 crossed below SMA 200")
+        
+        return signals
+
     def analyze_ichimoku_cloud(self, df, current_price):
         """Analyze Ichimoku Cloud with emphasis on LINE ORDER importance"""
         signals = []
@@ -435,6 +458,7 @@ class EnhancedStockAnalysisOntology:
     def volatility_analysis(self, df):
         """Comprehensive volatility assessment"""
         signals = []
+        volatility_score = 0
         
         # ATR analysis
         if 'ATR' in df.columns:
@@ -443,19 +467,23 @@ class EnhancedStockAnalysisOntology:
             
             if atr_percent > 5:
                 signals.append(f"🌪️ High Volatility (ATR: {atr_percent:.1f}%)")
+                volatility_score = 3
             elif atr_percent < 2:
                 signals.append(f"🍃 Low Volatility (ATR: {atr_percent:.1f}%)")
+                volatility_score = 1
             else:
                 signals.append(f"⚖️ Moderate Volatility (ATR: {atr_percent:.1f}%)")
+                volatility_score = 2
         
-        return signals
+        return signals, volatility_score
 
     def support_resistance_analysis(self, df):
         """Advanced support and resistance analysis"""
         signals = []
+        sr_score = 0
         
         if len(df) < 20:
-            return ["Insufficient data for S/R analysis"]
+            return ["Insufficient data for S/R analysis"], 0
             
         # Recent price action relative to key levels
         current_price = df['close'].iloc[-1]
@@ -468,10 +496,12 @@ class EnhancedStockAnalysisOntology:
         
         if from_high < 2:
             signals.append(f"🏔️ Near Resistance: {from_high:.1f}% from recent high")
+            sr_score -= 2
         elif from_low < 2:
             signals.append(f"🛟 Near Support: {from_low:.1f}% from recent low")
+            sr_score += 2
         
-        return signals
+        return signals, sr_score
 
     def generate_advanced_summary(self, df):
         """Generate comprehensive analysis with logical consistency"""
@@ -608,52 +638,96 @@ class EnhancedStockAnalysisOntology:
 
         return signals
 
-    def detect_market_regime(self, df):
-        """Detect current market regime"""
-        if 'ADX' not in df.columns or len(df) < 20:
-            return "Unknown"
-            
-        adx = df['ADX'].iloc[-1]
+    def determine_overall_bias(self, trend_score, momentum_score, volume_score, volatility_score, sr_score):
+        """Determine overall bias with weighted scoring"""
+        # Weighted scores (trend is most important)
+        total_score = (
+            trend_score * 0.35 +
+            momentum_score * 0.25 +
+            volume_score * 0.20 +
+            volatility_score * 0.10 +
+            sr_score * 0.10
+        )
         
-        if adx > 25:
-            if df['close'].iloc[-1] > df['SMA_50'].iloc[-1]:
-                return "Trending Bull"
-            else:
-                return "Trending Bear"
+        max_possible = 15 * 0.35 + 8 * 0.25 + 6 * 0.20 + 3 * 0.10 + 2 * 0.10
+        confidence = (total_score / max_possible) * 100
+        
+        # Determine bias based on weighted score
+        if total_score > max_possible * 0.7:
+            bias = "🟢 STRONG BULLISH"
+        elif total_score > max_possible * 0.5:
+            bias = "🟡 MODERATE BULLISH"
+        elif total_score > max_possible * 0.3:
+            bias = "⚪ NEUTRAL"
+        elif total_score > max_possible * 0.1:
+            bias = "🟡 MODERATE BEARISH"
         else:
-            return "Ranging/Low Volatility"
+            bias = "🔴 STRONG BEARISH"
+        
+        return bias, min(confidence, 100)
 
-    def assess_risk_level(self, df):
+    def detect_market_regime(self, df, trend_score, volatility_score):
+        """Detect current market regime"""
+        regimes = []
+        
+        # Trend-based regime
+        if trend_score > 10:
+            regimes.append("📈 TRENDING BULL")
+        elif trend_score > 6:
+            regimes.append("📈 MILD UPTREND")
+        elif trend_score < 3:
+            regimes.append("📉 TRENDING BEAR")
+        else:
+            regimes.append("🔄 RANGING")
+        
+        # Volatility-based regime
+        if volatility_score >= 3:
+            regimes.append("🌪️ HIGH VOLATILITY")
+        elif volatility_score <= 1:
+            regimes.append("🍃 LOW VOLATILITY")
+        else:
+            regimes.append("⚖️ MODERATE VOLATILITY")
+        
+        return regimes
+
+    def assess_risk_level(self, df, momentum_score, volatility_score):
         """Comprehensive risk assessment"""
         risk_factors = []
         
+        # Overbought/oversold risk
+        if 'RSI' in df.columns:
+            rsi = df['RSI'].iloc[-1]
+            if rsi > 75:
+                risk_factors.append("🔴 RSI Extremely Overbought")
+            elif rsi > 70:
+                risk_factors.append("🟡 RSI Overbought")
+            elif rsi < 25:
+                risk_factors.append("🔴 RSI Extremely Oversold")
+            elif rsi < 30:
+                risk_factors.append("🟢 RSI Oversold (Opportunity)")
+        
         # Volatility risk
-        if 'ATR' in df.columns:
-            atr_ratio = df['ATR'].iloc[-1] / df['close'].iloc[-1]
-            if atr_ratio > 0.05:
-                risk_factors.append("High Volatility")
-            elif atr_ratio > 0.02:
-                risk_factors.append("Medium Volatility")
-            else:
-                risk_factors.append("Low Volatility")
+        if volatility_score >= 3:
+            risk_factors.append("🔴 High Volatility - Larger Stops Needed")
+        elif volatility_score <= 1:
+            risk_factors.append("🟢 Low Volatility - Tighter Stops Possible")
         
-        return risk_factors if risk_factors else ["Normal Market Conditions"]
-
-    def determine_advanced_bias(self, trend_score, momentum_score, volume_score):
-        """Determine overall bias with weighted scoring"""
-        total = trend_score + momentum_score + volume_score
-        max_possible = 10 + 8 + 6
+        # Momentum risk
+        if momentum_score < 3:
+            risk_factors.append("🟡 Weak Momentum")
         
-        if total > max_possible * 0.6:
-            return "Strong Bullish"
-        elif total > max_possible * 0.4:
-            return "Moderate Bullish"
-        elif total > max_possible * 0.2:
-            return "Neutral"
-        elif total > max_possible * 0.1:
-            return "Moderate Bearish"
-        else:
-            return "Strong Bearish"
+        # Near key levels risk
+        if len(df) > 20:
+            current_price = df['close'].iloc[-1]
+            recent_high = df['high'].tail(20).max()
+            from_high = ((recent_high - current_price) / recent_high) * 100
+            if from_high < 3:
+                risk_factors.append("🟡 Near Resistance - Reversal Risk")
+        
+        if not risk_factors:
+            risk_factors.append("🟢 Normal Market Conditions")
+        
+        return risk_factors
 
     def _insufficient_data_summary(self):
         """Return summary for insufficient data"""
@@ -663,44 +737,77 @@ class EnhancedStockAnalysisOntology:
             'volume': ["Insufficient data for analysis"],
             'volatility': ["Insufficient data for analysis"],
             'support_resistance': ["Insufficient data for analysis"],
-            'overall_bias': "Neutral",
+            'ichimoku': ["Insufficient data for analysis"],
+            'overall_bias': "NEUTRAL",
             'confidence_score': 0,
-            'market_regime': "Unknown",
+            'market_regime': ["Insufficient data"],
             'risk_assessment': ["Insufficient Data"],
-            'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            'detailed_scores': {
+                'trend': 0,
+                'momentum': 0,
+                'volume': 0,
+                'volatility': 0,
+                'support_resistance': 0
+            }
         }
 
     def get_trading_recommendations(self, summary):
         """Generate trading recommendations based on analysis"""
         bias = summary['overall_bias'].lower()
-        regime = summary['market_regime'].lower()
+        regime = summary['market_regime'][0].lower() if summary.get('market_regime') else ''
+        confidence = summary['confidence_score']
         
         recommendations = []
         
-        if "bull" in bias and "trend" in regime:
+        if "strong bullish" in bias:
             recommendations.extend([
-                "Consider long positions on pullbacks to support",
-                "Use trailing stops to protect profits",
-                "Watch for trend exhaustion signals"
+                "🎯 STRONG BUY SIGNAL - Consider long positions",
+                "💰 Add on pullbacks to moving average support",
+                "📈 Use trailing stops to protect profits",
+                "🔍 Monitor for overbought conditions"
             ])
-        elif "bear" in bias and "trend" in regime:
+        elif "moderate bullish" in bias:
             recommendations.extend([
-                "Consider short positions on rallies to resistance", 
-                "Use tight stops above recent highs",
-                "Monitor for potential bottoming patterns"
+                "🟢 MODERATE BUY - Long with caution",
+                "⚖️ Scale into positions gradually", 
+                "🛡️ Use tighter stop losses",
+                "📊 Wait for confirmation on breakouts"
             ])
-        elif "rang" in regime:
+        elif "neutral" in bias:
             recommendations.extend([
-                "Trade range boundaries (buy support, sell resistance)",
-                "Use mean reversion strategies",
-                "Watch for breakout confirmation"
+                "⚖️ NEUTRAL BIAS - Wait for clearer direction",
+                "📉 Consider range-bound strategies",
+                "🔍 Wait for breakout confirmation",
+                "💼 Reduce position sizes"
             ])
-        else:
+        elif "bearish" in bias:
             recommendations.extend([
-                "Wait for clearer market direction",
-                "Reduce position sizes due to uncertainty",
-                "Monitor key support/resistance levels"
+                "🔴 BEARISH BIAS - Consider short positions",
+                "📉 Sell rallies to resistance",
+                "🛡️ Use aggressive stop losses",
+                "💸 Consider hedging strategies"
             ])
+        
+        # Confidence-based adjustments
+        if confidence > 70:
+            recommendations.append("✅ HIGH CONFIDENCE - Consider larger positions")
+        elif confidence < 40:
+            recommendations.append("⚠️ LOW CONFIDENCE - Reduce position sizes")
+        
+        # Risk-based recommendations
+        risk_factors = summary.get('risk_assessment', [])
+        if any("🔴" in risk for risk in risk_factors):
+            recommendations.append("🚨 HIGH RISK ENVIRONMENT - Extreme caution advised")
+        if any("🟡" in risk for risk in risk_factors):
+            recommendations.append("⚠️ MODERATE RISK - Standard position sizing")
+        
+        # Always include risk management
+        recommendations.extend([
+            "🎯 RISK MANAGEMENT: Max 2% risk per trade",
+            "📝 Always use stop losses based on ATR",
+            "🔍 Monitor for changing market conditions"
+        ])
         
         return recommendations
 
@@ -916,12 +1023,15 @@ def update_graphs(n_clicks, ticker, time_range, interval):
     # Calculate all indicators
     try:
         # Moving Averages
+        df['SMA_5'] = df['close'].rolling(5).mean()
         df['SMA_20'] = df['close'].rolling(20).mean()
         df['SMA_50'] = df['close'].rolling(50).mean()
         df['SMA_200'] = df['close'].rolling(200).mean()
-        
-        for ema_period in [8, 20, 21, 50, 55, 200]:
-            df[f'EMA_{ema_period}'] = df['close'].ewm(span=ema_period, adjust=False).mean()
+
+        df['EMA_8'] = df['close'].ewm(span=8, adjust=False).mean()
+        df['EMA_20'] = df['close'].ewm(span=20, adjust=False).mean()
+        df['EMA_50'] = df['close'].ewm(span=50, adjust=False).mean()
+        df['EMA_200'] = df['close'].ewm(span=200, adjust=False).mean()
 
         # Pivot Points
         pivot = (df['high'] + df['low'] + df['close']) / 3
@@ -1004,7 +1114,6 @@ def update_graphs(n_clicks, ticker, time_range, interval):
         trading_recommendations = ontology.get_trading_recommendations(analysis_summary)
         
         # Create enhanced insights display
-# In the Dash layout, update the insights section:
         insights_content = [
             html.H4(f"🎯 OVERALL BIAS: {analysis_summary['overall_bias']}", 
                    className=f"text-{'success' if 'bull' in analysis_summary['overall_bias'].lower() else 'danger' if 'bear' in analysis_summary['overall_bias'].lower() else 'warning'} font-weight-bold"),
@@ -1031,37 +1140,35 @@ def update_graphs(n_clicks, ticker, time_range, interval):
                     html.Ul([html.Li(signal, className="small") for signal in analysis_summary['momentum'][:6]])
                 ], width=6),
             ], className="mb-3"),
-
-            # ... rest of the layout
             
             dbc.Row([
                 dbc.Col([
-                    html.H5("📊 Volume Analysis"),
-                    html.Ul([html.Li(signal) for signal in analysis_summary['volume'][:5]])
+                    html.H5("📊 Volume Analysis", className="text-success"),
+                    html.Ul([html.Li(signal, className="small") for signal in analysis_summary['volume'][:5]])
                 ], width=6),
                 
                 dbc.Col([
-                    html.H5("🌪️ Volatility & Support/Resistance"),
-                    html.Ul([html.Li(signal) for signal in analysis_summary['volatility'] + analysis_summary['support_resistance']])
+                    html.H5("🌪️ Volatility & Support/Resistance", className="text-primary"),
+                    html.Ul([html.Li(signal, className="small") for signal in analysis_summary['volatility'] + analysis_summary['support_resistance']])
                 ], width=6),
             ])
         ]
         
         # Risk assessment
         risk_content = [
-            html.H5("🛡️ Risk Assessment"),
-            html.Ul([html.Li(risk) for risk in analysis_summary['risk_assessment']])
+            html.H5("🛡️ Risk Assessment", className="text-danger"),
+            html.Ul([html.Li(risk, className="small") for risk in analysis_summary['risk_assessment']])
         ]
         
         # Trading recommendations
         recommendations_content = [
-            html.H5("💡 Trading Recommendations"),
-            html.Ul([html.Li(recommendation) for recommendation in trading_recommendations])
+            html.H5("💡 Trading Recommendations", className="text-success"),
+            html.Ul([html.Li(recommendation, className="small") for recommendation in trading_recommendations])
         ]
         
         signals_content = html.Div([
-            html.H5("📈 Key Signals"),
-            html.P("Analysis complete - check individual charts for detailed signals")
+            html.H5("📈 Key Signals", className="text-info"),
+            html.P("Analysis complete - check individual charts for detailed signals", className="small")
         ])
         
     except Exception as e:
@@ -1215,9 +1322,3 @@ def update_graphs(n_clicks, ticker, time_range, interval):
 # ─────────────────────────────────────────────
 if __name__ == '__main__':
     app.run_server(debug=False, port=8050)
-
-
-# In[ ]:
-
-
-
