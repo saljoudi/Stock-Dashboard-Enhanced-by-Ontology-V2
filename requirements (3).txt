@@ -1,0 +1,13 @@
+dash
+dash-bootstrap-components
+plotly
+pandas
+numpy
+yahooquery
+ta
+python-dateutil
+datetime
+requests
+
+gunicorn
+
